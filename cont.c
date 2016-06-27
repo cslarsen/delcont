@@ -13,6 +13,9 @@ struct continuation {
   char* stack;
 };
 
+static char* root = NULL;
+static struct continuation* cont = NULL;
+
 struct continuation* create_cont()
 {
   struct continuation *p = malloc(sizeof(struct continuation));
@@ -33,12 +36,13 @@ int reify(char* start, struct continuation* p)
 
 void reinstate(char* start, struct continuation* p, int value)
 {
+  // TODO: This really should be in assembly, because we overwrite our current
+  // stack frame here, so the longjump will use incorrect values for p->env
+  // etc. We work around that here by using static variables.
+
   static jmp_buf env;
   static int retval;
 
-  // TODO: This needs to be done in assembly, because we overwrite our current
-  // stack frame here, so the longjump will use incorrect values for p->env
-  // etc. We work around that here by using global vars...
   memcpy(env, p->env, sizeof(jmp_buf));
   retval = value;
 
@@ -49,39 +53,38 @@ void reinstate(char* start, struct continuation* p, int value)
   longjmp(env, retval);
 }
 
+// The function we'll jump back to
 void show(const char* name, int number)
 {
-  printf("%s is %d\n", name, number);
+  printf("%s %d\n", name, number);
 }
-
-static char* root = NULL;
-static struct continuation* cont = NULL;
 
 void test()
 {
-  show("the current value", reify(root, cont));
+  // Notice that we jump back (*down* the stack) to reify() several times with
+  // new return values
+  show("    the current value is", reify(root, cont));
 }
 
-// TODO: If this takes params, we segfault
 void calltest()
 {
   // This is just to show that we are traversing back up the stack after
   // calling reinstate. Otherwise we would just have done a simple jump.
   root = getrbp();
-  printf("** call test() w/start set to %p\n", root);
+  printf("  call test() w/start set to %p\n", root);
   test();
-  printf("** test() returned\n");
+  printf("  test() returned\n");
 }
 
 int main()
 {
+  printf("allocating continuation\n");
   cont = create_cont();
 
   int age = 5;
   calltest();
 
   do {
-    printf("reinstating\n");
     reinstate(root, cont, age--);
   } while (age>0);
 }

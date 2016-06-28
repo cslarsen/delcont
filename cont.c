@@ -13,6 +13,7 @@ struct continuation {
   void* rip;
   void* rsp;
   void* rbp;
+  // TODO: Add more registers (see setjmp)
 };
 
 static char* root = NULL;
@@ -26,63 +27,26 @@ struct continuation* create_cont()
   return p;
 }
 
-int reify(char* start, struct continuation* p, int initial) asm("_reify");
-/*
-{
-  char* rsp = getrbp();
-  p->size = start - rsp;
-  p->stack = malloc(p->size);
-  memcpy(p->stack, rsp, p->size);
-  return setjmp(p->env);
-}
-*/
-
-void reinstate(char* start, struct continuation* p, int value) asm("_reinstate");
-/*
-{
-  // TODO: This really should be in assembly, because we overwrite our current
-  // stack frame here, so the longjump will use incorrect values for p->env
-  // etc. We work around that here by using static variables.
-
-  static jmp_buf env;
-  static int retval;
-
-  memcpy(env, p->env, sizeof(jmp_buf));
-  retval = value;
-
-  printf("reverse copy %zu bytes to %p\n", p->size, start);
-  memcpy(start - p->size, p->stack, p->size);
-
-  printf("longjump w/value %d\n", retval);
-  longjmp(env, retval);
-}
-*/
-
 // The function we'll jump back to
 void show(const char* name, int number)
 {
   printf("%s %d\n", name, number);
 }
 
-void test()
+void test(int initial)
 {
-  // Notice that we jump back (*down* the stack) to reify() several times with
-  // new return values
-  show("    the current value is", reify(root, cont, 0xde));
-  printf("p->size %zu\n", cont->size);
-  printf("p->rbp %p\n", cont->rbp);
-  printf("p->rsp %p\n", cont->rsp);
-  printf("p->rip %p\n", cont->rip);
+  // We jump _down_ the stack to reify() several times with new return values
+  show("  the value is", reify(root, cont, initial));
 }
 
-void calltest()
+void calltest(int initial)
 {
-  // This is just to show that we are traversing back up the stack after
-  // calling reinstate. Otherwise we would just have done a simple jump.
+  // Mark the extent of the continuation (root)
   root = getrbp();
-  printf("  call test() w/start set to %p\n", root);
-  test();
-  printf("  test() returned\n");
+  printf("calling test() w/initial value %d and root %p\n", initial, root);
+
+  test(initial);
+  printf("test() returned\n", initial);
 }
 
 int main()
@@ -90,12 +54,14 @@ int main()
   printf("allocating continuation\n");
   cont = create_cont();
 
-  int age = 5;
-  calltest();
+  int age = 10;
+  calltest(age);
 
+  // we've now made a "function" out of the continuation; we are now at liberty
+  // to call it as many times as we want, each time returning through all
+  // functions involved between root and reify.
   do {
-    printf("age %d\n", age);
-    reinstate(root, cont, age--);
+    reinstate(root, cont, --age);
   } while (age>0);
 
   printf("done\n");

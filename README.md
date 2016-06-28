@@ -14,3 +14,10 @@ and environment if
 
 It's probaly other caveats as well. But I'm quite sure I'll be able to create a
 more robust version, even if it will always have inherent limitations.
+
+TODO
+----
+
+  * We do `root = getrbp()`; make it push onto a stack instead, then use the
+    most recent value in `reinstate`.
+  * make the continuation interface reentrant (i.e., do not use global vars)

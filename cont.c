@@ -26,7 +26,7 @@ struct continuation* create_cont()
 
 int reify(char* start, struct continuation* p)
 {
-  char* rsp = getrsp();
+  char* rsp = getrbp();
   assert(rsp < start);
   p->size = start - rsp;
   p->stack = malloc(p->size);
@@ -87,4 +87,6 @@ int main()
   do {
     reinstate(root, cont, age--);
   } while (age>0);
+
+  return 0;
 }

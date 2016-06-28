@@ -14,5 +14,5 @@ _getrbp:
   ret
 
 _getrsp:
-  mov rax, rbp
+  mov rax, rsp
   ret

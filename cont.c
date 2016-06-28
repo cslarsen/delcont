@@ -8,9 +8,11 @@
 #include "aux.h"
 
 struct continuation {
-  jmp_buf env;
   size_t size;
   char* stack;
+  void* rip;
+  void* rsp;
+  void* rbp;
 };
 
 static char* root = NULL;
@@ -24,17 +26,19 @@ struct continuation* create_cont()
   return p;
 }
 
-int reify(char* start, struct continuation* p)
+int reify(char* start, struct continuation* p, int initial) asm("_reify");
+/*
 {
   char* rsp = getrbp();
-  assert(rsp < start);
   p->size = start - rsp;
   p->stack = malloc(p->size);
   memcpy(p->stack, rsp, p->size);
   return setjmp(p->env);
 }
+*/
 
-void reinstate(char* start, struct continuation* p, int value)
+void reinstate(char* start, struct continuation* p, int value) asm("_reinstate");
+/*
 {
   // TODO: This really should be in assembly, because we overwrite our current
   // stack frame here, so the longjump will use incorrect values for p->env
@@ -52,6 +56,7 @@ void reinstate(char* start, struct continuation* p, int value)
   printf("longjump w/value %d\n", retval);
   longjmp(env, retval);
 }
+*/
 
 // The function we'll jump back to
 void show(const char* name, int number)
@@ -63,7 +68,11 @@ void test()
 {
   // Notice that we jump back (*down* the stack) to reify() several times with
   // new return values
-  show("    the current value is", reify(root, cont));
+  show("    the current value is", reify(root, cont, 0xde));
+  printf("p->size %zu\n", cont->size);
+  printf("p->rbp %p\n", cont->rbp);
+  printf("p->rsp %p\n", cont->rsp);
+  printf("p->rip %p\n", cont->rip);
 }
 
 void calltest()
@@ -85,8 +94,10 @@ int main()
   calltest();
 
   do {
+    printf("age %d\n", age);
     reinstate(root, cont, age--);
   } while (age>0);
 
+  printf("done\n");
   return 0;
 }

@@ -4,9 +4,9 @@ NASM := nasm
 
 OS := $(shell uname)
 	ifeq ($(OS),Linux)
-		NASMFLAGS := -felf64
+		NASMFLAGS := -felf64 -w+all
 	else
-		NASMFLAGS := -fmacho64
+		NASMFLAGS := -fmacho64 -w+all
 	endif
 
 %.o: %.asm
